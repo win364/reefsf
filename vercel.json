@@ -1,0 +1,47 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/*.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "**",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
+    },
+    {
+      "src": "/mines/debug/state",
+      "dest": "/api/mines-debug-state.js"
+    },
+    {
+      "src": "/predictor-snapshot",
+      "dest": "/api/predictor-snapshot.js"
+    },
+    {
+      "src": "/static/(.*)",
+      "dest": "/static/$1"
+    },
+    {
+      "src": "/prod-rnd-frontend-php-orchestra.100hp.app/static/(.*)",
+      "dest": "/prod-rnd-frontend-php-orchestra.100hp.app/static/$1"
+    },
+    {
+      "src": "/cellsFrame.40eb57f7e28f2ca52ad4.png",
+      "dest": "/cellsFrame.40eb57f7e28f2ca52ad4.png"
+    },
+    {
+      "src": "/",
+      "dest": "/predictor.html"
+    },
+    {
+      "src": "/predictor.html",
+      "dest": "/predictor.html"
+    }
+  ]
+}

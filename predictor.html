@@ -1,0 +1,532 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mines Predictor</title>
+    <link rel="stylesheet" href="/prod-rnd-frontend-php-orchestra.100hp.app/static/css/main.144a5b0d.css">
+    <style>
+        :root { --footer-h: 14vmin; }
+        body { 
+            margin: 0; 
+            padding: 0; 
+            background: #0a0f1d; 
+            font-family: Arial, sans-serif; 
+            overflow: hidden; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            height: calc(100vh - var(--footer-h)); 
+        }
+        
+        /* Stage holds frame and outside decorations */
+        .stage { 
+            position: relative; 
+            width: 340px; 
+            height: 340px; 
+            overflow: visible; 
+        }
+        
+        /* Frame fills the stage - original styling */
+        .frame {
+            position: absolute; 
+            inset: 0;
+            background-color: #0a0f1d;
+            background-image: url('./prod-rnd-frontend-php-orchestra.100hp.app/static/media/cellsFrame.40eb57f7e28f2ca52ad4.png');
+            background-position: 50%;
+            background-repeat: no-repeat;
+            background-size: auto;
+            border-radius: 25px;
+            box-shadow: 0 -2px 20px rgba(42, 49, 69, .4), 0 4px 54px rgba(42, 49, 69, .2);
+            z-index: 1;
+            transition: all .5s ease;
+            animation: originalFieldAppear 0.8s ease-out forwards;
+        }
+        
+        /* Fallback если рамка не загрузилась */
+        .frame::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border: 2px solid #16cef0;
+            border-radius: 25px;
+            opacity: 0.3;
+            z-index: 0;
+        }
+        
+        /* Дополнительный fallback - рамка как элемент */
+        .frame-fallback {
+            position: absolute;
+            inset: 0;
+            background-image: url('./cellsFrame.40eb57f7e28f2ca52ad4.png');
+            background-position: 50%;
+            background-repeat: no-repeat;
+            background-size: auto;
+            z-index: 1;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .frame-fallback.loaded {
+            opacity: 1;
+        }
+        
+        @keyframes originalFieldAppear {
+            0% {
+                opacity: 0;
+                transform: scale(0.7) translateY(-50px);
+            }
+            50% {
+                opacity: 0.7;
+                transform: scale(1.05) translateY(-10px);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+        
+        /* Grid strictly inside visible frame area - original grid */
+        .grid-container {
+            position: absolute; 
+            inset: 0;
+            display: grid; 
+            grid-template-columns: repeat(5, 66px);
+            grid-template-rows: repeat(5, 66px);
+            gap: 0;
+            z-index: 2;
+            padding: 10px;
+            overflow: hidden;
+            animation: gridAppear 1s ease-out 0.3s forwards;
+            opacity: 0;
+        }
+        
+        @keyframes gridAppear {
+            0% {
+                opacity: 0;
+                transform: scale(0.9);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+        
+        /* Original empty cell styling */
+        .cell { 
+            background: transparent;
+            border: none; 
+            border-radius: 8px;
+            align-items: center;
+            display: flex;
+            justify-content: center;
+            z-index: 1;
+            overflow: visible;
+            cursor: pointer;
+            transition: transform .15s ease-in-out;
+            position: relative;
+        }
+        .cell:hover { transform: scale(1.02); }
+        
+        /* Icon container like original */
+        .icon-wrap { 
+            width: 100%; 
+            height: 100%; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            contain: layout paint;
+            backface-visibility: hidden;
+            transform: translateZ(0);
+        }
+        .icon-wrap > svg, .icon-wrap > img {
+            width: 56px; 
+            height: 56px; 
+            display: block; 
+            pointer-events: none;
+        }
+        /* Original sizing - no scale */
+        .icon-wrap.icon-star { transform: translateZ(0); transform-origin: 50% 50%; }
+        .icon-wrap.icon-cross { transform: translateZ(0); transform-origin: 50% 50%; }
+        /* Original hover effect */
+        .cell:hover .icon-wrap svg {
+            height: 62px;
+            width: 62px;
+            transition: all .3s;
+        }
+        
+        /* Field reveal mask overlay (first open only) — original sizes */
+        .cells-board-mask {
+          height: 320px;
+          left: 15px;
+          -webkit-mask-clip: border-box;
+          mask-clip: initial;
+          -webkit-mask-image: url(/prod-rnd-frontend-php-orchestra.100hp.app/static/media/cells-mask.1a7021b147b7851ffef6.svg);
+          mask-image: url(/prod-rnd-frontend-php-orchestra.100hp.app/static/media/cells-mask.1a7021b147b7851ffef6.svg);
+          -webkit-mask-size: 100% 100%;
+          mask-size: 100% 100%;
+          position: absolute;
+          top: 15px;
+          width: 320px;
+          z-index: 2;
+          pointer-events: none;
+        }
+        
+        .cells-board-mask .animated-highlight {
+          background: linear-gradient(180deg, hsla(0, 0%, 100%, 0), hsla(0, 0%, 100%, .4) 98.37%, hsla(0, 0%, 100%, 0));
+          height: 74px;
+          position: absolute;
+          right: 170px;
+          top: 50px;
+          -webkit-transform: rotate(-60deg);
+          transform: rotate(-60deg);
+          width: 610px;
+          z-index: 3;
+          animation: highlightSweep 3s ease-in-out infinite;
+        }
+        
+        @keyframes highlightSweep {
+          0% { right: 170px; opacity: 0; }
+          15% { opacity: 1; }
+          85% { opacity: 1; }
+          100% { right: -300px; opacity: 0; }
+        }
+        
+        /* Анимация появления ячеек - оригинальная */
+        @keyframes cellAppear {
+            0% {
+                opacity: 0;
+                transform: scale(0.8);
+            }
+            50% {
+                opacity: 0.7;
+                transform: scale(1.1);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+        
+        /* Bottom decorative rock below the frame */
+        .footer-rock { 
+            position: fixed; 
+            left: 50%; 
+            bottom: 0; 
+            transform: translateX(-50%); 
+            width: min(96vmin, 96vw); 
+            pointer-events: none; 
+            z-index: 0; 
+        }
+    </style>
+  </head>
+  <body>
+    
+    <div class="stage">
+        <div class="frame">
+            <!-- Fallback рамка -->
+            <div class="frame-fallback" id="frameFallback"></div>
+            
+            <div class="cells-board-mask" id="cellsMask">
+                <div class="animated-highlight"></div>
+            </div>
+            <div class="grid-container" id="gameGrid"></div>
+        </div>
+        <!-- Bottom decorative rock below the frame -->
+        <img class="footer-rock" src="./prod-rnd-frontend-php-orchestra.100hp.app/static/media/footer.a650de3af39c3672822e.webp" alt="footer"/>
+        
+
+    </div>
+
+    <script>
+        // Prevent browser zoom
+        (function preventZoom(){
+          const onKeyDown = (e) => {
+            if ((e.ctrlKey || e.metaKey) && (e.key === '+' || e.key === '=' || e.key === '-' || e.key === '_' || e.key === '0')) e.preventDefault();
+            if ((e.ctrlKey || e.metaKey) && (e.code === 'NumpadAdd' || e.code === 'NumpadSubtract')) e.preventDefault();
+          };
+          const onWheel = (e) => { if (e.ctrlKey) e.preventDefault(); };
+          window.addEventListener('keydown', onKeyDown, { passive: false });
+          window.addEventListener('wheel', onWheel, { passive: false });
+        })();
+
+        // Original assets: external animated star and inline cross
+        const STAR_URL = 'https://entypublic.github.io/dogmain/mines/img/stars.svg';
+        const STAR_FALLBACK_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" viewBox="0 0 56 56" preserveAspectRatio="xMidYMid meet" fill="none" style="background: 0px 0px; shape-rendering: geometricPrecision;">\n  <defs>\n    <linearGradient id="Gradient-0_s_i" x1="28.392" y1="0.972" x2="40.632" y2="48.291" gradientUnits="userSpaceOnUse">\n      <stop offset="0" stop-color="#fba416" stop-opacity="0"></stop>\n      <stop offset="1" stop-color="#fdbb4e" stop-opacity="0.63"></stop>\n    </linearGradient>\n    <linearGradient id="Gradient-1_s_i" x1="28.392" y1="0.972" x2="40.633" y2="48.291" gradientUnits="userSpaceOnUse">\n      <stop offset="0" stop-color="#fdbb4e" stop-opacity="0"></stop>\n      <stop offset="1" stop-color="#fdbb4e" stop-opacity="0.63"></stop>\n    </linearGradient>\n    <linearGradient id="Gradient-3_s_i" x1="43.739" y1="37.512" x2="18.526" y2="14.674" gradientUnits="userSpaceOnUse">\n      <stop offset="0" stop-color="#feffd3" stop-opacity="0.63"></stop>\n      <stop offset="0.219" stop-color="#fafd4e" stop-opacity="0"></stop>\n      <stop offset="0.491" stop-color="#fdff8b" stop-opacity="0.56"></stop>\n      <stop offset="0.733" stop-color="#f7f990"></stop>\n      <stop offset="1" stop-color="#fff" stop-opacity="0"></stop>\n      <stop offset="1" stop-color="#feffb7" stop-opacity="0"></stop>\n    </linearGradient>\n    <linearGradient id="Gradient-4_s_i" x1="28.391" y1="14.126" x2="28.026" y2="38.425" gradientUnits="userSpaceOnUse">\n      <stop offset="0" stop-color="#feffb0"></stop>\n      <stop offset="0.277" stop-color="#fff" stop-opacity="0.51"></stop>\n      <stop offset="1" stop-color="#fafd4e" stop-opacity="0.15"></stop>\n    </linearGradient>\n    <linearGradient id="Gradient-5_s_i" x1="27.214" y1="23.393" x2="27.033" y2="32.029" gradientUnits="userSpaceOnUse">\n      <stop offset="0" stop-color="#fafd4e" stop-opacity="0"></stop>\n      <stop offset="0.732" stop-color="#fafd4e" stop-opacity="0.46"></stop>\n    </linearGradient>\n    <linearGradient id="Gradient-6_s_i" x1="24.792" y1="18.563" x2="29.645" y2="23.143" gradientUnits="userSpaceOnUse">\n      <stop offset="0.224" stop-color="#fafd4e" stop-opacity="0.35"></stop>\n      <stop offset="1" stop-color="#fafd4e" stop-opacity="0"></stop>\n    </linearGradient>\n    <linearGradient id="Gradient-7_s_i" x1="0.016" y1="26.376" x2="16.573" y2="26.055" gradientUnits="userSpaceOnUse">\n      <stop offset="0" stop-color="#fff"></stop>\n      <stop offset="1" stop-color="#fff" stop-opacity="0"></stop>\n    </linearGradient>\n    <radialGradient id="Gradient-2_s_i" cx="0" cy="0" r="1" fx="0" fy="0" gradientUnits="userSpaceOnUse" gradientTransform="rotate(52.671 -10.467 32.845) scale(31.9369)">\n      <stop offset="0.739" stop-color="#9cb6dd" stop-opacity="0"></stop>\n      <stop offset="0.898" stop-color="#c6f1ff" stop-opacity="0.37"></stop>\n      <stop offset="1" stop-color="#effbff" stop-opacity="0.7"></stop>\n    </radialGradient>\n    <mask id="Mask-1_s_i">\n      <path fill="url(#Gradient-7_s_i)" transform="rotate(30 31.002 3.397)" d="M0 0h16.959v56H0z"></path>\n    </mask>\n  </defs>\n  <style>\n    @keyframes star_t_s_i { 0% { transform: translate(28.3918px, 26.0576px) scale(0, 0) translate(-23.4974px, -22.4547px);} 42.8571% { transform: translate(28.3918px, 26.0576px) scale(1, 1) translate(-23.4974px, -22.4547px);} 71.4285% { transform: translate(28.3918px, 26.0576px) scale(1.15, 1.15) translate(-23.4974px, -22.4547px);} to { transform: translate(28.3918px, 26.0576px) scale(1, 1) translate(-23.4974px, -22.4547px);} }\n    @keyframes a1_t_s_i { 0%, to { transform: translate(23.4966px, 22.4549px); } }\n    @keyframes a0_t_s_i { 0% { transform: scale(1.889498, 1.889498) translate(-28.3911px, -27.0603px);} to { transform: scale(1, 1) translate(-28.3911px, -27.0603px);} }\n    @keyframes a2_t_s_i { 0% { transform: translate(22.2182px, 22.7642px) rotate(145.526246deg) scale(.462454, .462454) translate(-27.1127px, -26.3671px);} to { transform: translate(22.2182px, 22.7642px) rotate(0deg) scale(1, 1) translate(-27.1127px, -26.3671px);} }\n    @keyframes a2_o_s_i { 0% { opacity: 0;} to { opacity: 1; } }\n    @keyframes a3_t_s_i { 0% { transform: translate(18.9293px, 24.3971px) rotate(-53.127557deg) scale(.322292, .322292) translate(-26.7458px, -20.6401px);} to { transform: translate(21.8514px, 17.0372px) rotate(0deg) scale(1, 1) translate(-26.7458px, -20.6401px);} }\n    @keyframes a3_o_s_i { 0% { opacity: 0;} to { opacity: 1; } }\n    @keyframes a4_t_s_i { 0% { transform: translate(-.804393px, 13.4424px) rotate(30deg) translate(-8.47967px, -28px);} 28.5714% { transform: translate(-.804393px, 13.4424px) rotate(30deg) translate(-8.47967px, -28px);} 85.7142%, to { transform: translate(58.8824px, 41.1538px) rotate(30deg) translate(-8.47967px, -28px);} }\n  </style>\n  <g id="star" transform="matrix(0 0 0 0 28.392 26.058)" style="animation: 0.7s linear 0s 1 normal both running star_t_s_i;">\n    <path d="M26.439 4.8c.813-1.595 3.092-1.595 3.905 0l5.7 11.17a2.192 2.192 0 0 0 1.609 1.168l12.385 1.97c1.768.28 2.472 2.448 1.207 3.714l-8.862 8.873a2.193 2.193 0 0 0-.615 1.891l1.955 12.388c.279 1.768-1.565 3.107-3.16 2.295l-11.177-5.686a2.192 2.192 0 0 0-1.989 0L16.22 48.269c-1.595.812-3.439-.527-3.16-2.295l1.955-12.388a2.192 2.192 0 0 0-.615-1.89l-8.862-8.874c-1.265-1.266-.561-3.433 1.207-3.714l12.385-1.97a2.192 2.192 0 0 0 1.609-1.168l5.7-11.17Z" fill="#C22A20" transform="translate(-4.894 -3.603)"></path>\n    <path d="M26.44 4.799c.813-1.595 3.091-1.595 3.905 0l5.7 11.17a2.192 2.192 0 0 0 1.609 1.169l12.385 1.97c1.768.28 2.472 2.447 1.207 3.714l-8.863 8.873a2.192 2.192 0 0 0-.614 1.89l1.954 12.388c.28 1.769-1.564 3.108-3.16 2.296l-11.177-5.687a2.193 2.193 0 0 0-1.988 0L16.22 48.27c-1.596.812-3.44-.527-3.16-2.296l1.954-12.387a2.192 2.192 0 0 0-.614-1.891l-8.863-8.873c-1.265-1.267-.56-3.434 1.207-3.715l12.386-1.969a2.192 2.192 0 0 0 1.608-1.169l5.7-11.17Z" fill="url(#Gradient-1_s_i)" transform="translate(-4.894 -3.603)"></path>\n    <path fill-rule="evenodd" clip-rule="evenodd" d="m35.394 16.302-5.7-11.171c-.542-1.063-2.061-1.063-2.604 0l-5.7 11.17a2.923 2.923 0 0 1-2.145 1.559L6.86 19.829c-1.178.187-1.648 1.632-.804 2.476l8.862 8.873c.66.661.965 1.598.82 2.522l-1.955 12.387c-.186 1.179 1.043 2.072 2.106 1.53l11.178-5.686a2.923 2.923 0 0 1 2.65 0l11.178 5.687c1.064.54 2.292-.352 2.106-1.53L41.047 33.7a2.923 2.923 0 0 1 .82-2.522l8.862-8.873c.843-.844.374-2.289-.805-2.476l-12.385-1.97a2.923 2.923 0 0 1-2.145-1.558Z" fill="url(#Gradient-3_s_i)" transform="translate(-4.894 -3.603)"></path>\n  </g>\n</svg>`;
+        const CROSS_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" fill="none" style="background: 0px 0px;">\n  <defs>\n    <linearGradient id="Gradient-0_cr_i" x1="36.273" y1="22.811" x2="36.273" y2="42.259" gradientUnits="userSpaceOnUse">\n      <stop offset="0" stop-color="#708fbe" stop-opacity="0"></stop>\n      <stop offset="1" stop-color="#72ddff" stop-opacity="0.63"></stop>\n    </linearGradient>\n    <linearGradient id="Gradient-1_cr_i" x1="37.616" y1="25.294" x2="38.093" y2="46.992" gradientUnits="userSpaceOnUse">\n      <stop offset="0" stop-color="#708fbe" stop-opacity="0"></stop>\n      <stop offset="1" stop-color="#72ddff" stop-opacity="0.63"></stop>\n    </linearGradient>\n    <linearGradient id="Gradient-3_cr_i" x1="40.728" y1="38.449" x2="18.636" y2="19.326" gradientUnits="userSpaceOnUse">\n      <stop offset="0" stop-color="#d8f6ff" stop-opacity="0.63"></stop>\n      <stop offset="0.219" stop-color="#a0d2ff" stop-opacity="0"></stop>\n      <stop offset="0.491" stop-color="#8dc8ff" stop-opacity="0.56"></stop>\n      <stop offset="0.733" stop-color="#9adbf8"></stop>\n      <stop offset="1" stop-color="#fff" stop-opacity="0"></stop>\n      <stop offset="1" stop-color="#baeaff" stop-opacity="0"></stop>\n    </linearGradient>\n    <linearGradient id="Gradient-4_cr_i" x1="14.418" y1="36.947" x2="17.329" y2="39.593" gradientUnits="userSpaceOnUse">\n      <stop offset="0" stop-color="#c4c4c4" stop-opacity="0"></stop>\n      <stop offset="0.732" stop-color="#dbf6ff" stop-opacity="0.46"></stop>\n    </linearGradient>\n    <linearGradient id="Gradient-5_cr_i" x1="19.496" y1="20.081" x2="16.218" y2="17.456" gradientUnits="userSpaceOnUse">\n      <stop offset="0" stop-color="#c4c4c4" stop-opacity="0"></stop>\n      <stop offset="1" stop-color="#dbf6ff" stop-opacity="0.45"></stop>\n    </linearGradient>\n    <linearGradient id="Gradient-6_cr_i" x1="40.013" y1="20.668" x2="36.906" y2="18.258" gradientUnits="userSpaceOnUse">\n      <stop offset="0" stop-color="#c4c4c4" stop-opacity="0"></stop>\n      <stop offset="1" stop-color="#dbf6ff" stop-opacity="0.45"></stop>\n    </linearGradient>\n    <linearGradient id="Gradient-7_cr_i" x1="28.827" y1="29.033" x2="36.075" y2="28.323" gradientUnits="userSpaceOnUse">\n      <stop offset="0.224" stop-color="#dbf6ff" stop-opacity="0.35"></stop>\n      <stop offset="1" stop-color="#c4c4c4" stop-opacity="0"></stop>\n    </linearGradient>\n    <linearGradient id="Gradient-8_cr_i" x1="37.08" y1="34.836" x2="12.044" y2="13.755" gradientUnits="userSpaceOnUse">\n      <stop offset="0" stop-color="#d8f6ff" stop-opacity="0.63"></stop>\n      <stop offset="0.219" stop-color="#a0d2ff" stop-opacity="0"></stop>\n      <stop offset="0.491" stop-color="#8dc8ff" stop-opacity="0.56"></stop>\n      <stop offset="0.733" stop-color="#9adbf8"></stop>\n      <stop offset="1" stop-color="#fff" stop-opacity="0"></stop>\n      <stop offset="1" stop-color="#baeaff" stop-opacity="0"></stop>\n    </linearGradient>\n    <linearGradient id="Gradient-9_cr_i" x1="0" y1="-2.48" x2="-0.638" y2="1.785" gradientUnits="userSpaceOnUse">\n      <stop offset="0" stop-color="#94d9f6"></stop>\n      <stop offset="1" stop-color="#94d9f6" stop-opacity="0"></stop>\n    </linearGradient>\n    <radialGradient id="Gradient-2_cr_i" cx="0" cy="0" r="1" fx="0" fy="0" gradientUnits="userSpaceOnUse" gradientTransform="matrix(15.5197 21.2962 -21.0221 15.3199 22.682 24.327)">\n      <stop offset="0.739" stop-color="#9cb6dd" stop-opacity="0"></stop>\n      <stop offset="0.898" stop-color="#c6f1ff" stop-opacity="0.37"></stop>\n      <stop offset="1" stop-color="#effbff" stop-opacity="0.7"></stop>\n    </radialGradient>\n  </defs>\n  <style>\n    @keyframes a0_t_cr_i { 0% { transform: translate(28px, 28px) rotate(180deg); animation-timing-function: cubic-bezier(0, 0, .58, 1); } 71.4285% { transform: translate(28px, 28px) rotate(-5deg); } to { transform: translate(28px, 28px) rotate(0deg); } }\n    @keyframes krest_t_cr_i { 0% { transform: scale(0, 0) translate(-28px, -28px); } 42.8571%, to { transform: scale(1, 1) translate(-28px, -28px); } 71.4285% { transform: scale(1.15, 1.15) translate(-28px, -28px); animation-timing-function: cubic-bezier(0, 0, .58, 1); } }\n    @keyframes a1_t_cr_i { 0% { transform: translate(17.3511px, 39px) rotate(0deg) scale(.438128, .423532) translate(-14.3863px, -37.0446px); } to { transform: translate(14.3863px, 37.0446px) rotate(0deg) scale(1, 1) translate(-14.3863px, -37.0446px); } }\n    @keyframes a2_t_cr_i { 0% { transform: translate(15.8726px, 16.8036px) rotate(0deg) scale(.440469, .440469) translate(-19.2722px, -19.7496px); } to { transform: translate(19.2722px, 19.7496px) rotate(0deg) scale(1, 1) translate(-19.2722px, -19.7496px); } }\n    @keyframes a3_t_cr_i { 0% { transform: translate(37px, 18.2131px) rotate(0deg) scale(.461347, .461347) translate(-40.0446px, -20.5702px); } to { transform: translate(40.0446px, 20.5702px) rotate(0deg) scale(1, 1) translate(-40.0446px, -20.5702px); } }\n    @keyframes a4_t_cr_i { 0% { transform: translate(29.3877px, 32.5041px) rotate(-45.565409deg) scale(.403058, .403058) translate(-31.3472px, -29.0394px); } to { transform: translate(31.3472px, 29.0394px) rotate(0deg) scale(1, 1) translate(-31.3472px, -29.0394px); } }\n    @keyframes a5_t_cr_i { 0% { transform: translate(27.9335px, 28.2933px) rotate(0deg) scale(1.122601, 1.122601) translate(-27.9335px, -28.2933px); } 28.5714% { transform: translate(27.9335px, 28.2933px) rotate(-4.682578deg) scale(1.087572, 1.087572) translate(-27.9335px, -28.2933px); } 71.4285% { transform: translate(27.9335px, 28.2933px) rotate(0deg) scale(1.035029, 1.035029) translate(-27.9335px, -28.2933px); } to { transform: translate(27.9335px, 28.2933px) rotate(0deg) scale(1, 1) translate(-27.9335px, -28.2933px); } }\n  </style>\n  <g style="animation: 0.7s linear 0s 1 normal both running a0_t_cr_i;">\n    <g transform="matrix(0 0 0 0 28 28)" id="krest" style="animation: 0.7s linear 0s 1 normal both running krest_t_cr_i;">\n      <path fill-rule="evenodd" clip-rule="evenodd" d="M43.408 10.226a2.385 2.385 0 0 0-3.373 0L29.388 20.872a2.237 2.237 0 0 1-3.163 0L15.578 10.226a2.385 2.385 0 0 0-3.373 0l-2.53 2.53a2.385 2.385 0 0 0 0 3.373L20.32 26.776c.874.873.874 2.29 0 3.163L9.675 40.585a2.385 2.385 0 0 0 0 3.374l2.53 2.53a2.385 2.385 0 0 0 3.373 0l10.647-10.647a2.236 2.236 0 0 1 3.163 0l10.646 10.647a2.385 2.385 0 0 0 3.374 0l2.53-2.53a2.385 2.385 0 0 0 0-3.374L35.29 29.94a2.237 2.237 0 0 1 0-3.163l10.647-10.647a2.385 2.385 0 0 0 0-3.373l-2.53-2.53Z" fill="#43628F"></path>\n      <path fill-rule="evenodd" clip-rule="evenodd" d="M43.408 10.226a2.385 2.385 0 0 0-3.373 0L27.806 22.454 15.578 10.226a2.385 2.385 0 0 0-3.373 0l-2.53 2.53a2.385 2.385 0 0 0 0 3.373l12.228 12.228L9.675 40.585a2.385 2.385 0 0 0 0 3.374l2.53 2.53a2.385 2.385 0 0 0 3.373 0L27.806 34.26 40.035 46.49a2.385 2.385 0 0 0 3.373 0l2.53-2.53a2.385 2.385 0 0 0 0-3.374L33.709 28.357 45.938 16.13a2.385 2.385 0 0 0 0-3.373l-2.53-2.53Z" fill="url(#Gradient-0_cr_i)"></path>\n      <path fill-rule="evenodd" clip-rule="evenodd" d="M43.408 10.226a2.385 2.385 0 0 0-3.373 0L27.806 22.454 15.578 10.226a2.385 2.385 0 0 0-3.373 0l-2.53 2.53a2.385 2.385 0 0 0 0 3.373l12.228 12.228L9.675 40.585a2.385 2.385 0 0 0 0 3.374l2.53 2.53a2.385 2.385 0 0 0 3.373 0L27.806 34.26 40.035 46.49a2.385 2.385 0 0 0 3.373 0l2.53-2.53a2.385 2.385 0 0 0 0-3.374L33.709 28.357 45.938 16.13a2.385 2.385 0 0 0 0-3.373l-2.53-2.53Z" fill="url(#Gradient-1_cr_i)"></path>\n      <path fill-rule="evenodd" clip-rule="evenodd" d="M39.36 9.551a3.34 3.34 0 0 1 4.723 0l2.53 2.53a3.34 3.34 0 0 1 0 4.723L35.227 28.188a.239.239 0 0 0 0 .338L46.613 39.91a3.34 3.34 0 0 1 0 4.722l-2.53 2.53a3.34 3.34 0 0 1-4.723 0L27.975 35.778a.239.239 0 0 0-.337 0L16.253 47.163a3.34 3.34 0 0 1-4.723 0L9 44.633a3.34 3.34 0 0 1 0-4.722l11.385-11.385a.239.239 0 0 0 0-.338L9 16.804a3.34 3.34 0 0 1 0-4.723l2.53-2.53a3.34 3.34 0 0 1 4.723 0l11.385 11.385a.239.239 0 0 0 .337 0L39.36 9.55Zm.675.675a2.385 2.385 0 0 1 3.373 0l2.53 2.53a2.385 2.385 0 0 1 0 3.373L34.553 27.514a1.193 1.193 0 0 0 0 1.686l11.385 11.385a2.385 2.385 0 0 1 0 3.374l-2.53 2.53a2.385 2.385 0 0 1-3.373 0L28.65 35.104a1.193 1.193 0 0 0-1.687 0L15.578 46.489a2.385 2.385 0 0 1-3.373 0l-2.53-2.53a2.385 2.385 0 0 1 0-3.374L21.06 29.2a1.193 1.193 0 0 0 0-1.686L9.675 16.129a2.385 2.385 0 0 1 0-3.373l2.53-2.53a2.385 2.385 0 0 1 3.373 0L26.963 21.61c.466.466 1.221.466 1.687 0l11.385-11.384Z" fill="#E2E2E2"></path>\n      <path fill-rule="evenodd" clip-rule="evenodd" d="M39.36 9.551a3.34 3.34 0 0 1 4.723 0l2.53 2.53a3.34 3.34 0 0 1 0 4.723L35.227 28.188a.239.239 0 0 0 0 .338L46.613 39.91a3.34 3.34 0 0 1 0 4.722l-2.53 2.53a3.34 3.34 0 0 1-4.723 0L27.975 35.778a.239.239 0 0 0-.337 0L16.253 47.163a3.34 3.34 0 0 1-4.723 0L9 44.633a3.34 3.34 0 0 1 0-4.722l11.385-11.385a.239.239 0 0 0 0-.338L9 16.804a3.34 3.34 0 0 1 0-4.723l2.53-2.53a3.34 3.34 0 0 1 4.723 0l11.385 11.385a.239.239 0 0 0 .337 0L39.36 9.55Zm.675.675a2.385 2.385 0 0 1 3.373 0l2.53 2.53a2.385 2.385 0 0 1 0 3.373L34.553 27.514a1.193 1.193 0 0 0 0 1.686l11.385 11.385a2.385 2.385 0 0 1 0 3.374l-2.53 2.53a2.385 2.385 0 0 1-3.373 0L28.65 35.104a1.193 1.193 0 0 0-1.687 0L15.578 46.489a2.385 2.385 0 0 1-3.373 0l-2.53-2.53a2.385 2.385 0 0 1 0-3.374L21.06 29.2a1.193 1.193 0 0 0 0-1.686L9.675 16.129a2.385 2.385 0 0 1 0-3.373l2.53-2.53a2.385 2.385 0 0 1 3.373 0L26.963 21.61c.466.466 1.221.466 1.687 0l11.385-11.384Z" fill="url(#Gradient-3_cr_i)"></path>\n      <path d="M19.263 32.051c.336 8.28-5.096 10.683-7.854 10.85-5.237-.655 1.651-3.229 4.258-8.555 2.086-4.261 3.267-3.305 3.596-2.295Z" fill="url(#Gradient-4_cr_i)" transform="matrix(.43813 0 0 .42353 11.048 23.31)" style="animation: 0.7s linear 0s 1 normal both running a1_t_cr_i;"></path>\n      <path d="M16.417 22.512c-1.922-6.724 2.141-6.982 4.413-6.27 4.507 2.126-.74 2.076-1.863 5.536-.898 2.769-2.074 1.643-2.55.734Z" fill="url(#Gradient-5_cr_i)" fill-opacity="0.6" transform="matrix(.44047 0 0 .44047 7.384 8.105)" style="animation: 0.7s linear 0s 1 normal both running a2_t_cr_i;"></path>\n      <path d="M35.168 25.564c-.336-8.281 5.096-10.684 7.854-10.85 5.237.654-1.651 3.229-4.258 8.555-2.086 4.26-3.267 3.305-3.596 2.295Z" fill="url(#Gradient-6_cr_i)" fill-opacity="0.6" transform="matrix(.46135 0 0 .46135 18.526 8.723)" style="animation: 0.7s linear 0s 1 normal both running a3_t_cr_i;"></path>\n      <path d="M27.007 29.814c1.866 7.643 5.57 8.719 7.188 8.301 4.173-1.915.778-14.985-1.107-17.311-1.885-2.326-8.414-.543-6.081 9.01Z" fill="url(#Gradient-7_cr_i)" fill-opacity="0.6" transform="rotate(-45.566 45.772 2.16) scale(.40306)" style="animation: 0.7s linear 0s 1 normal both running a4_t_cr_i;"></path>\n      <path fill-rule="evenodd" clip-rule="evenodd" d="M12.948 13.266a.894.894 0 0 1 1.265.002l9.498 9.524a5.963 5.963 0 0 0 8.445 0l9.498-9.524a.894.894 0 1 1 1.267 1.263l-9.525 9.552a5.963 5.963 0 0 0 0 8.421l9.525 9.552a.894.894 0 1 1-1.267 1.263l-9.498-9.525a5.963 5.963 0 0 0-8.445 0l-9.498 9.525a.895.895 0 0 1-1.267-1.263l9.525-9.552a5.963 5.963 0 0 0 0-8.421l-9.525-9.552a.894.894 0 0 1 .002-1.265Z" fill="url(#Gradient-8_cr_i)" transform="translate(-3.425 -3.469) scale(1.1226)" style="animation: 0.7s linear 0s 1 normal both running a5_t_cr_i;"></path>\n      <circle fill="#94D9F6" transform="translate(26.508 27.06)" r="0.54"></circle>\n      <circle opacity="0.2" fill="url(#Gradient-9_cr_i)" transform="translate(26.509 27.06)" r="2.48"></circle>\n      <path fill-rule="evenodd" clip-rule="evenodd" d="M12.052 16.59a.54.54 0 0 1 .764.022l2.322 2.46a.54.54 0 0 1-.785.742l-2.323-2.46a.54.54 0 0 1 .022-.764Z" fill="#94D9F6"></path>\n      <circle fill="#94D9F6" transform="rotate(-70.181 22.464 -.895)" r="0.54"></circle>\n    </g>\n  </g>\n</svg>`;
+
+        class MinesPredictor {
+            constructor() {
+                this.currentSessionId = null;
+                this.prevMap = new Map(); // idx -> 'mine' | 'safe'
+                this.pollTimer = null;
+                this.freezeUntilMs = 0;
+                this.freezeActive = false;
+                this.lastRoundSeen = null;
+                this.storageKey = 'minesPredictor:lastGrid';
+                this.upstreamAvailable = false;
+                this.starSvgText = null; // will hold external star svg markup
+                this.starTemplate = null;
+                this.crossTemplate = null;
+                this.init();
+            }
+            
+                        async init() {
+                this.createGrid();
+                
+                // Проверяем загрузку рамки
+                this.checkFrameImage();
+                
+                // Также пробуем загрузить рамку напрямую
+                this.loadFrameDirectly();
+                
+                // Preload star SVG like original
+                try {
+                  const resp = await fetch(STAR_URL, { cache: 'force-cache', mode: 'cors' });
+                  const raw = resp.ok ? await resp.text() : STAR_FALLBACK_SVG;
+                  this.starSvgText = raw || STAR_FALLBACK_SVG;
+                } catch(_) { this.starSvgText = STAR_FALLBACK_SVG; }
+                this.starTemplate = document.createElement('template');
+                this.starTemplate.innerHTML = this.starSvgText || '';
+                this.crossTemplate = document.createElement('template');
+                this.crossTemplate.innerHTML = CROSS_SVG;
+                
+                // Show mask then start
+                const mask = document.getElementById('cellsMask');
+                const grid = document.querySelector('.grid-container');
+                if (grid) grid.style.opacity = '0';
+                if (mask) {
+                  mask.style.display = 'block';
+                  mask.style.zIndex = '3';
+                                                          setTimeout(async () => {
+                        mask.style.display = 'none';
+                        mask.style.zIndex = '0';
+                        if (grid) grid.style.opacity = '1';
+                        await this.fetchAndRender();
+                        this.startPolling();
+                    }, 700);
+                } else {
+                    await this.fetchAndRender();
+                    this.startPolling();
+                }
+            }
+            
+            async checkUpstream(timeoutMs = 800) {
+              try {
+                const controller = new AbortController();
+                const t = setTimeout(() => controller.abort(), timeoutMs);
+                const res = await fetch('/mines/debug/state', { cache: 'no-store', signal: controller.signal });
+                clearTimeout(t);
+                this.upstreamAvailable = !!res && res.ok;
+              } catch(_) {
+                this.upstreamAvailable = false;
+              }
+              return this.upstreamAvailable;
+            }
+            
+            createGrid() {
+                const grid = document.getElementById('gameGrid'); 
+                grid.innerHTML = '';
+                for (let r = 0; r < 5; r++) {
+                    for (let c = 0; c < 5; c++) {
+                    const cell = document.createElement('button');
+                    cell.type = 'button';
+                        cell.className = 'cell cell-hovered';
+                        cell.dataset.row = r; 
+                        cell.dataset.col = c;
+                    grid.appendChild(cell);
+                    }
+                }
+            }
+            
+            startPolling() { 
+                // Умное обновление - проверяем каждые 2 секунды, но обновляем только при изменениях
+                this.pollTimer = setInterval(() => this.checkForUpdates(), 2000); 
+            }
+            
+            checkFrameImage() {
+                const frame = document.querySelector('.frame');
+                if (!frame) return;
+                
+                // Пробуем разные пути к рамке
+                const framePaths = [
+                    './prod-rnd-frontend-php-orchestra.100hp.app/static/media/cellsFrame.40eb57f7e28f2ca52ad4.png',
+                    './static/media/cellsFrame.40eb57f7e28f2ca52ad4.png',
+                    './mines/static/media/cellsFrame.40eb57f7e28f2ca52ad4.png'
+                ];
+                
+                let currentPathIndex = 0;
+                
+                const tryNextPath = () => {
+                    if (currentPathIndex >= framePaths.length) {
+                        console.log('Все пути к рамке не работают, используем fallback');
+                        frame.style.backgroundImage = 'none';
+                        return;
+                    }
+                    
+                    const img = new Image();
+                    img.onload = () => {
+                        frame.style.backgroundImage = `url("${framePaths[currentPathIndex]}")`;
+                        console.log(`Рамка загружена успешно: ${framePaths[currentPathIndex]}`);
+                    };
+                    img.onerror = () => {
+                        console.log(`Ошибка загрузки рамки: ${framePaths[currentPathIndex]}`);
+                        currentPathIndex++;
+                        tryNextPath();
+                    };
+                    img.src = framePaths[currentPathIndex];
+                };
+                
+                tryNextPath();
+            }
+            
+            loadFrameDirectly() {
+                const frame = document.querySelector('.frame');
+                const frameFallback = document.getElementById('frameFallback');
+                if (!frame || !frameFallback) return;
+                
+                // Пробуем загрузить рамку напрямую из текущей папки
+                const directPath = './cellsFrame.40eb57f7e28f2ca52ad4.png';
+                const img = new Image();
+                img.onload = () => {
+                    // Скрываем основной фон и показываем fallback
+                    frame.style.backgroundImage = 'none';
+                    frameFallback.classList.add('loaded');
+                    console.log(`Рамка загружена напрямую: ${directPath}`);
+                };
+                img.onerror = () => {
+                    console.log(`Прямая загрузка рамки не удалась: ${directPath}`);
+                };
+                img.src = directPath;
+            }
+            
+            async checkForUpdates() {
+                try {
+                    const res = await fetch('/mines/debug/state');
+                    if (!res.ok) return;
+                    const data = await res.json();
+                    
+                    const sessionId = data.sessionId || null;
+                    const lastRound = typeof data.lastRound === 'number' ? data.lastRound : null;
+                    
+                    // Обновляем ТОЛЬКО при изменении сессии (новая игра)
+                    // НЕ обновляем при изменении lastRound (ходы в игре)
+                    if (sessionId !== this.currentSessionId) {
+                        this.currentSessionId = sessionId;
+                        this.lastRoundSeen = lastRound;
+                        
+                        // Если новая игра, очищаем предыдущее предсказание
+                        if (sessionId) {
+                            this.clearAll();
+                            await this.fetchAndRender();
+                        }
+                        // Если игра закончилась (sessionId = null), НЕ очищаем предсказание
+                        // Оно останется видимым до следующей игры
+                    }
+                } catch (e) {}
+            }
+            
+
+            
+            idx(r,c){ return r*5+c; }
+            
+            saveSnapshotToStorage(mapArr){
+                try { localStorage.setItem(this.storageKey, JSON.stringify({ map: mapArr, ts: Date.now() })); } catch(_){}
+            }
+            
+            loadSnapshotFromStorageAndRender(){
+                try {
+                    const raw = localStorage.getItem(this.storageKey);
+                    if (!raw) return;
+                    const parsed = JSON.parse(raw);
+                    const map = Array.isArray(parsed?.map) ? parsed.map : null;
+                    if (!map || map.length !== 25) return;
+                    // Rehydrate snapshot without changing session bookkeeping
+                    for (let r=0;r<5;r++){
+                        for (let c=0;c<5;c++){
+                            const type = map[this.idx(r,c)];
+                            if (type === 'mine' || type === 'safe') this.place(type, r, c, true);
+                        }
+                    }
+                } catch(_){}
+            }
+            
+            place(type, r, c, force = false) {
+                const cell = document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
+                if (!cell) return;
+                const key = this.idx(r,c);
+                // Всегда обновляем содержимое и анимируем
+                this.prevMap.set(key, type);
+                
+                const STAR_INNER = this.starSvgText ? `<div class=\"icon-wrap icon-star\">${this.starSvgText}</div>` : '';
+                const CROSS_INNER = `<div class=\"icon-wrap icon-cross\">${CROSS_SVG}</div>`;
+                
+                if (type === 'mine') {
+                    cell.innerHTML = CROSS_INNER;
+                } else if (type === 'safe') {
+                    cell.innerHTML = STAR_INNER || '';
+                } else {
+                    cell.innerHTML = '';
+                }
+                
+                // Анимация для ВСЕХ ячеек при каждом обновлении
+                cell.style.animation = 'none';
+                cell.offsetHeight; // Trigger reflow
+                cell.style.animation = 'cellAppear 0.5s ease-out forwards';
+            }
+            
+            clearAll() {
+                document.querySelectorAll('.cell').forEach(cell => { 
+                    cell.innerHTML = ''; // Clear any existing icons
+                    cell.style.animation = ''; // Clear animations
+                });
+                this.prevMap.clear();
+            }
+            
+            async fetchAndRender() {
+                try {
+                    const res = await fetch('/mines/debug/state');
+                    if (!res.ok) return;
+                    const data = await res.json();
+                    const sessionId = data.sessionId || null;
+                    const bombsArr = Array.isArray(data.bombs) ? data.bombs : [];
+                    const safeArr = Array.isArray(data.safe) ? data.safe : [];
+                    
+                    // Если нет активной сессии, оставляем предыдущее предсказание
+                    if (!sessionId) {
+                        return;
+                    }
+                    
+                    // Если нет данных о бомбах/безопасных ячейках, не обновляем
+                    if (bombsArr.length === 0 && safeArr.length === 0) return;
+                    
+                    const bombs = bombsArr.map(b => `${b.row}:${b.col}`);
+                    const bombSet = new Set(bombs);
+                    if (!this._renderQueued) {
+                        this._renderQueued = true;
+                        requestAnimationFrame(() => {
+                            this._renderQueued = false;
+                            const snapshot = new Array(25);
+                            for (let r = 0; r < 5; r++) {
+                                for (let c = 0; c < 5; c++) {
+                                    const key = `${r}:${c}`;
+                                    const type = bombSet.has(key) ? 'mine' : 'safe';
+                                    this.place(type, r, c, false);
+                                    snapshot[this.idx(r,c)] = type;
+                                }
+                            }
+                            this.saveSnapshotToStorage(snapshot);
+                        });
+                    }
+                } catch (e) {}
+            }
+        }
+        
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', () => new MinesPredictor());
+        } else {
+          new MinesPredictor();
+        }
+    </script>
+  </body>
+  </html>

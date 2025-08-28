@@ -1,0 +1,17 @@
+{
+  "name": "mines-predictor-static",
+  "version": "1.0.0",
+  "description": "Mines Predictor - Static Version",
+  "scripts": {
+    "dev": "vercel dev",
+    "build": "echo 'Static build - no build step required'",
+    "start": "vercel dev"
+  },
+  "keywords": ["mines", "predictor", "static"],
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {},
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
